@@ -17,7 +17,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const authUrl = `${cleanHost}/player_api.php?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
       
       try {
-        const response = await axios.get(authUrl, { timeout: 10000 });
+        const response = await axios.get(authUrl, { 
+          timeout: 10000,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+          }
+        });
         
         if (response.data && response.data.user_info && response.data.server_info) {
           // Authentication successful
@@ -94,7 +99,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const channelsUrl = `${session.host}/player_api.php?username=${encodeURIComponent(session.username)}&password=${encodeURIComponent(session.password)}&action=get_live_streams`;
       
       try {
-        const response = await axios.get(channelsUrl, { timeout: 15000 });
+        const response = await axios.get(channelsUrl, { 
+          timeout: 15000,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+          }
+        });
         
         if (response.data && Array.isArray(response.data)) {
           // Transform and store channels
@@ -102,11 +112,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             sessionId,
             streamId: stream.stream_id?.toString() || '',
             name: stream.name || 'Canal sem nome',
-            categoryId: stream.category_id?.toString() || '',
+            categoryId: stream.category_id?.toString() || null,
             categoryName: stream.category_name || 'Outros',
             streamUrl: `${session.host}/live/${session.username}/${session.password}/${stream.stream_id}.m3u8`,
-            logo: stream.stream_icon || '',
-            epgChannelId: stream.epg_channel_id || '',
+            logo: stream.stream_icon || null,
+            epgChannelId: stream.epg_channel_id || null,
             added: stream.added ? new Date(parseInt(stream.added) * 1000) : null,
             isNsfw: stream.is_adult === "1" || false,
           }));
@@ -156,7 +166,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const categoriesUrl = `${session.host}/player_api.php?username=${encodeURIComponent(session.username)}&password=${encodeURIComponent(session.password)}&action=get_live_categories`;
       
       try {
-        const response = await axios.get(categoriesUrl, { timeout: 10000 });
+        const response = await axios.get(categoriesUrl, { 
+          timeout: 10000,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+          }
+        });
         
         if (response.data && Array.isArray(response.data)) {
           res.json({

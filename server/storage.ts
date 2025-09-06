@@ -51,6 +51,9 @@ export class MemStorage implements IStorage {
       id,
       createdAt: new Date(),
       isActive: true,
+      userInfo: insertSession.userInfo || null,
+      serverInfo: insertSession.serverInfo || null,
+      expiresAt: insertSession.expiresAt || null,
     };
     this.xtreamSessions.set(id, session);
     return session;
@@ -77,6 +80,12 @@ export class MemStorage implements IStorage {
     const channels = insertChannels.map(channel => ({
       ...channel,
       id: randomUUID(),
+      categoryId: channel.categoryId || null,
+      categoryName: channel.categoryName || null,
+      logo: channel.logo || null,
+      epgChannelId: channel.epgChannelId || null,
+      isNsfw: channel.isNsfw || null,
+      added: channel.added || null,
     }));
     
     channels.forEach(channel => {
