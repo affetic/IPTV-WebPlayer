@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>IPTV Web Player</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #121212; color: #fff; margin: 0; padding: 0; }
+    header { padding: 20px; text-align: center; background: #1f1f1f; }
+    #login, #player-section { max-width: 800px; margin: 20px auto; }
+    input { padding: 10px; margin: 5px; width: 200px; }
+    button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+    ul { list-style: none; padding: 0; }
+    li { padding: 10px; border-bottom: 1px solid #333; cursor: pointer; }
+    li:hover { background: #333; }
+    video { width: 100%; max-height: 450px; margin-top: 20px; background: black; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>IPTV Web Player (Exemplo)</h1>
+  </header>
+
+  <div id="login">
+    <h3>Entrar com sua conta Xtream</h3>
+    <input type="text" id="host" placeholder="Host (ex: http://server.com)" /><br>
+    <input type="text" id="username" placeholder="Usuário" /><br>
+    <input type="password" id="password" placeholder="Senha" /><br>
+    <button onclick="login()">Entrar</button>
+  </div>
+
+  <div id="player-section" style="display:none;">
+    <h3>Canais ao vivo</h3>
+    <ul id="channel-list">
+      <!-- Canais vão aparecer aqui -->
+    </ul>
+    <video id="video-player" controls></video>
+    <button onclick="togglePiP()">PiP</button>
+  </div>
+
+  <script>
+    // Função de login simulada
+    function login() {
+      const host = document.getElementById('host').value;
+      const user = document.getElementById('username').value;
+      const pass = document.getElementById('password').value;
+
+      if(!host || !user || !pass){
+        alert("Preencha todos os campos!");
+        return;
+      }
+
+      // Aqui você chamaria a API Xtream real
+      // Por enquanto vamos usar canais de exemplo
+      const channels = [
+        { name: "Canal 1", url: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" },
+        { name: "Canal 2", url: "https://test-streams.mux.dev/test_001/stream.m3u8" }
+      ];
+
+      showChannels(channels);
+    }
+
+    function showChannels(channels){
+      document.getElementById('login').style.display = 'none';
+      document.getElementById('player-section').style.display = 'block';
+      const list = document.getElementById('channel-list');
+      list.innerHTML = '';
+      channels.forEach(c => {
+        const li = document.createElement('li');
+        li.textContent = c.name;
+        li.onclick = () => playChannel(c.url);
+        list.appendChild(li);
+      });
+    }
+
+    function playChannel(url){
+      const player = document.getElementById('video-player');
+      player.src = url;
+      player.play();
+    }
+
+    async function togglePiP(){
+      const video = document.getElementById('video-player');
+      try {
+        if(video !== document.pictureInPictureElement){
+          await video.requestPictureInPicture();
+        } else {
+          await document.exitPictureInPicture();
+        }
+      } catch(e){
+        alert("PiP não suportado neste navegador.");
+      }
+    }
+  </script>
+</body>
+</html>
