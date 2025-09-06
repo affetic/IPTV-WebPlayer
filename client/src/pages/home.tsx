@@ -118,8 +118,6 @@ export default function Home() {
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        <DisclaimerBanner />
-
         {isCheckingStoredSession ? (
           <div className="flex items-center justify-center py-16">
             <div className="text-center">
@@ -128,7 +126,16 @@ export default function Home() {
             </div>
           </div>
         ) : !isLoggedIn ? (
-          <LoginForm onLoginSuccess={handleLoginSuccess} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+            {/* Disclaimer Section */}
+            <div>
+              <DisclaimerBanner />
+            </div>
+            {/* Login Section */}
+            <div>
+              <LoginForm onLoginSuccess={handleLoginSuccess} />
+            </div>
+          </div>
         ) : (
           <div className="animate-fade-in">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

@@ -18,11 +18,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       try {
         const response = await axios.get(authUrl, { 
-          timeout: 10000,
+          timeout: 15000,
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            'User-Agent': 'VLC/3.0.11 LibVLC/3.0.11',
+            'Accept': '*/*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive',
+            'Cache-Control': 'no-cache'
+          },
+          validateStatus: function (status) {
+            return status >= 200 && status < 500; // Accept even error responses to better handle them
           }
         });
+        
+        // Log response for debugging
+        console.log('Auth response status:', response.status);
+        console.log('Auth response data type:', typeof response.data);
+        
+        if (response.status === 403) {
+          return res.status(401).json({
+            success: false,
+            error: "Servidor bloqueou a conexão (Cloudflare). Tente novamente em alguns minutos ou verifique se o servidor aceita conexões de aplicações web."
+          });
+        }
         
         if (response.data && response.data.user_info && response.data.server_info) {
           // Authentication successful
@@ -52,17 +71,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
             serverInfo: server_info,
           });
         } else {
+          // Log what we actually received
+          console.log('Unexpected response format:', response.data);
           res.status(401).json({
             success: false,
-            error: "Credenciais inválidas ou servidor não encontrado"
+            error: `Credenciais inválidas ou formato de resposta inesperado. Status: ${response.status}`
           });
         }
-      } catch (apiError) {
-        console.error("Xtream API Error:", apiError);
-        res.status(401).json({
-          success: false,
-          error: "Erro ao conectar com o servidor IPTV. Verifique as credenciais e tente novamente."
-        });
+      } catch (apiError: any) {
+        console.error("Xtream API Error:", apiError.message);
+        console.error("Error details:", apiError.response?.status, apiError.response?.statusText);
+        
+        if (apiError.response?.status === 403) {
+          res.status(401).json({
+            success: false,
+            error: "Servidor rejeitou a conexão (possivelmente Cloudflare). Tente novamente mais tarde."
+          });
+        } else if (apiError.code === 'ENOTFOUND') {
+          res.status(401).json({
+            success: false,
+            error: "Servidor não encontrado. Verifique se o endereço está correto."
+          });
+        } else if (apiError.code === 'ETIMEDOUT') {
+          res.status(401).json({
+            success: false,
+            error: "Conexão expirou. O servidor pode estar sobrecarregado."
+          });
+        } else {
+          res.status(401).json({
+            success: false,
+            error: `Erro ao conectar: ${apiError.message || 'Servidor indisponível'}`
+          });
+        }
       }
     } catch (error) {
       console.error("Auth error:", error);
@@ -100,9 +140,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       try {
         const response = await axios.get(channelsUrl, { 
-          timeout: 15000,
+          timeout: 20000,
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            'User-Agent': 'VLC/3.0.11 LibVLC/3.0.11',
+            'Accept': '*/*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive'
           }
         });
         
@@ -167,9 +211,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       try {
         const response = await axios.get(categoriesUrl, { 
-          timeout: 10000,
+          timeout: 15000,
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            'User-Agent': 'VLC/3.0.11 LibVLC/3.0.11',
+            'Accept': '*/*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive'
           }
         });
         
