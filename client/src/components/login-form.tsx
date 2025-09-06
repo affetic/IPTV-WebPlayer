@@ -7,17 +7,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { xtreamApi } from "@/lib/xtream-api";
 import { xtreamAuthSchema, type XtreamAuth } from "@shared/schema";
 
 interface LoginFormProps {
-  onLoginSuccess: (sessionId: string, userInfo: any, serverInfo: any) => void;
+  onLoginSuccess: (sessionId: string, userInfo: any, serverInfo: any, rememberMe?: boolean) => void;
 }
 
 export function LoginForm({ onLoginSuccess }: LoginFormProps) {
   const { toast } = useToast();
+  const [rememberMe, setRememberMe] = useState(false);
   
   const form = useForm<XtreamAuth>({
     resolver: zodResolver(xtreamAuthSchema),
@@ -36,7 +38,7 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
           title: "Conectado com sucesso!",
           description: "Carregando canais...",
         });
-        onLoginSuccess(data.sessionId, data.userInfo, data.serverInfo);
+        onLoginSuccess(data.sessionId, data.userInfo, data.serverInfo, rememberMe);
       } else {
         toast({
           title: "Erro na autenticação",
@@ -138,6 +140,21 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
                   </FormItem>
                 )}
               />
+
+              <div className="flex items-center space-x-2 mb-6">
+                <Checkbox
+                  id="remember-me"
+                  checked={rememberMe}
+                  onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                  data-testid="checkbox-remember-me"
+                />
+                <Label 
+                  htmlFor="remember-me" 
+                  className="text-sm text-muted-foreground cursor-pointer"
+                >
+                  Lembrar de mim neste dispositivo
+                </Label>
+              </div>
 
               <Button
                 type="submit"
