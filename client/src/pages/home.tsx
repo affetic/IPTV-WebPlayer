@@ -129,7 +129,7 @@ export default function Home() {
                 </div>
                 <h3 className="font-semibold text-foreground mb-2">Apenas um Player</h3>
                 <p className="text-muted-foreground text-sm">
-                  Este serviço é apenas um reprodutor de mídia. Não fornecemos nem hospedamos qualquer conteúdo.
+                  Este serviço é apenas um reprodutor de mídia. <strong>NÃO VENDEMOS</strong> nem fornecemos listas IPTV ou qualquer conteúdo.
                 </p>
               </div>
             </CardContent>
