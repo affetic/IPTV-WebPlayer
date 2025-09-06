@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Tv, HelpCircle, Shield, Key, Headphones } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { xtreamApi, type Channel } from "@/lib/xtream-api";
+import { sessionStorage } from "@/lib/storage";
 import { DisclaimerBanner } from "@/components/disclaimer-banner";
 import { LoginForm } from "@/components/login-form";
 import { ChannelList } from "@/components/channel-list";
@@ -17,7 +18,25 @@ export default function Home() {
   const [userInfo, setUserInfo] = useState<any>(null);
   const [serverInfo, setServerInfo] = useState<any>(null);
   const [selectedChannel, setSelectedChannel] = useState<Channel | undefined>();
+  const [isCheckingStoredSession, setIsCheckingStoredSession] = useState(true);
   const { toast } = useToast();
+
+  // Check for stored session on component mount
+  useEffect(() => {
+    const storedSession = sessionStorage.getSession();
+    if (storedSession) {
+      setSessionId(storedSession.sessionId);
+      setUserInfo(storedSession.userInfo);
+      setServerInfo(storedSession.serverInfo);
+      setIsLoggedIn(true);
+      
+      toast({
+        title: "Sessão restaurada",
+        description: "Bem-vindo de volta!",
+      });
+    }
+    setIsCheckingStoredSession(false);
+  }, [toast]);
 
   const logoutMutation = useMutation({
     mutationFn: () => xtreamApi.logout(sessionId),
@@ -43,14 +62,21 @@ export default function Home() {
     },
   });
 
-  const handleLoginSuccess = (newSessionId: string, newUserInfo: any, newServerInfo: any) => {
+  const handleLoginSuccess = (newSessionId: string, newUserInfo: any, newServerInfo: any, rememberMe?: boolean) => {
     setSessionId(newSessionId);
     setUserInfo(newUserInfo);
     setServerInfo(newServerInfo);
     setIsLoggedIn(true);
+
+    // Save session to localStorage if remember me is checked
+    if (rememberMe) {
+      sessionStorage.saveSession(newSessionId, newUserInfo, newServerInfo);
+    }
   };
 
   const handleLogout = () => {
+    // Clear stored session data
+    sessionStorage.clearSession();
     logoutMutation.mutate();
   };
 
@@ -94,7 +120,14 @@ export default function Home() {
       <main className="container mx-auto px-4 py-8">
         <DisclaimerBanner />
 
-        {!isLoggedIn ? (
+        {isCheckingStoredSession ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Verificando sessão salva...</p>
+            </div>
+          </div>
+        ) : !isLoggedIn ? (
           <LoginForm onLoginSuccess={handleLoginSuccess} />
         ) : (
           <div className="animate-fade-in">
