@@ -19,13 +19,13 @@ export function ChannelList({ sessionId, onChannelSelect, selectedChannelId }: C
 
   const { data: channelsData, isLoading: channelsLoading } = useQuery({
     queryKey: ["/api/channels", sessionId],
-    queryFn: () => xtreamApi.getChannels(sessionId),
+    queryFn: () => xtreamApi.getChannels(),
     enabled: !!sessionId,
   });
 
   const { data: categoriesData } = useQuery({
     queryKey: ["/api/categories", sessionId],
-    queryFn: () => xtreamApi.getCategories(sessionId),
+    queryFn: () => xtreamApi.getCategories(),
     enabled: !!sessionId,
   });
 

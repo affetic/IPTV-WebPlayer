@@ -39,7 +39,7 @@ export default function Home() {
   }, [toast]);
 
   const logoutMutation = useMutation({
-    mutationFn: () => xtreamApi.logout(sessionId),
+    mutationFn: () => xtreamApi.logout(),
     onSuccess: () => {
       setIsLoggedIn(false);
       setSessionId("");
