@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
-import { xtreamApi, type Channel } from "@/lib/xtream-api";
+import { xtreamApi, type Playable } from "@/lib/xtream-api";
 import type { XtreamAuth } from "@shared/schema";
 import { sessionStorage } from "@/lib/storage";
 import { DisclaimerBanner } from "@/components/disclaimer-banner";
@@ -18,7 +18,7 @@ export default function Home() {
   const [sessionId, setSessionId] = useState<string>("");
   const [userInfo, setUserInfo] = useState<any>(null);
   const [serverInfo, setServerInfo] = useState<any>(null);
-  const [selectedChannel, setSelectedChannel] = useState<Channel | undefined>();
+  const [selectedContent, setSelectedContent] = useState<Playable | undefined>();
   const [isCheckingStoredSession, setIsCheckingStoredSession] = useState(true);
   const { toast } = useToast();
 
@@ -49,7 +49,7 @@ export default function Home() {
       setSessionId("");
       setUserInfo(null);
       setServerInfo(null);
-      setSelectedChannel(undefined);
+      setSelectedContent(undefined);
       
       // Clear all cached data
       queryClient.clear();
@@ -84,11 +84,27 @@ export default function Home() {
     logoutMutation.mutate();
   };
 
-  const handleChannelSelect = (channel: Channel) => {
-    setSelectedChannel(channel);
+  const handleContentSelect = (content: Playable) => {
+    setSelectedContent(content);
+    
+    // Determine content type and show appropriate message
+    const getContentTypeMessage = () => {
+      if ('contentType' in content) {
+        return content.contentType === 'live' ? 'Canal selecionado' : 'Filme selecionado';
+      }
+      return 'Episódio selecionado';
+    };
+    
+    const getContentName = () => {
+      if ('title' in content) {
+        return content.title; // Episode
+      }
+      return content.name; // Channel or Movie
+    };
+    
     toast({
-      title: "Canal selecionado",
-      description: channel.name,
+      title: getContentTypeMessage(),
+      description: getContentName(),
     });
   };
 
@@ -147,15 +163,15 @@ export default function Home() {
               <div className="lg:col-span-1">
                 <ContentTabs
                   sessionId={sessionId}
-                  onChannelSelect={handleChannelSelect}
-                  selectedChannelId={selectedChannel?.id}
+                  onContentSelect={handleContentSelect}
+                  selectedContentId={selectedContent?.id}
                 />
               </div>
 
               {/* Video Player */}
               <div className="lg:col-span-2">
                 <VideoPlayer
-                  currentChannel={selectedChannel}
+                  currentContent={selectedContent}
                   onLogout={handleLogout}
                 />
               </div>

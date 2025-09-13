@@ -58,6 +58,21 @@ export interface Series {
   lastModified: string;
 }
 
+export interface Episode {
+  id: string;
+  streamId: string;
+  episodeNum: string;
+  title: string;
+  plot: string;
+  duration: string;
+  releaseDate: string;
+  rating: string;
+  season: string;
+  streamUrl: string;
+  added: string | null;
+  containerExtension: string;
+}
+
 export interface ChannelsResponse {
   success: boolean;
   channels?: Channel[];
@@ -76,6 +91,13 @@ export interface SeriesResponse {
   error?: string;
 }
 
+export interface EpisodesResponse {
+  success: boolean;
+  episodes?: Episode[];
+  seriesInfo?: any;
+  error?: string;
+}
+
 export interface Category {
   category_id: string;
   category_name: string;
@@ -89,6 +111,9 @@ export interface CategoriesResponse {
 }
 
 export type ContentType = 'live' | 'movies' | 'series';
+
+// Unified type for playable content
+export type Playable = Channel | Movie | Episode;
 
 // Store current session data
 let currentSession: {
@@ -350,6 +375,78 @@ export const xtreamApi = {
       return {
         success: false,
         error: `Erro ao buscar séries: ${error.message}`
+      };
+    }
+  },
+
+  async getSeriesInfo(seriesId: string): Promise<EpisodesResponse> {
+    if (!currentSession) {
+      return {
+        success: false,
+        error: "Sessão não encontrada. Faça login novamente."
+      };
+    }
+
+    try {
+      const seriesInfoUrl = `${currentSession.host}/player_api.php?username=${encodeURIComponent(currentSession.username)}&password=${encodeURIComponent(currentSession.password)}&action=get_series_info&series_id=${seriesId}`;
+      
+      const response = await fetch(seriesInfoUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json, text/plain, */*',
+          'User-Agent': 'VLC/3.0.11 LibVLC/3.0.11'
+        },
+        mode: 'cors'
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      if (data && data.episodes) {
+        const episodes: Episode[] = [];
+        
+        // Process episodes from all seasons
+        Object.keys(data.episodes).forEach(seasonNum => {
+          const seasonEpisodes = data.episodes[seasonNum];
+          if (Array.isArray(seasonEpisodes)) {
+            seasonEpisodes.forEach((episode: any) => {
+              episodes.push({
+                id: `episode_${episode.id}`,
+                streamId: episode.id?.toString() || '',
+                episodeNum: episode.episode_num?.toString() || '',
+                title: episode.title || `Episódio ${episode.episode_num}`,
+                plot: episode.plot || '',
+                duration: episode.duration || '',
+                releaseDate: episode.releasedate || '',
+                rating: episode.rating || '',
+                season: seasonNum,
+                streamUrl: `${currentSession!.host}/series/${currentSession!.username}/${currentSession!.password}/${episode.id}.${episode.container_extension || 'mp4'}`,
+                added: episode.added ? new Date(parseInt(episode.added) * 1000).toISOString() : null,
+                containerExtension: episode.container_extension || 'mp4'
+              });
+            });
+          }
+        });
+
+        return {
+          success: true,
+          episodes,
+          seriesInfo: data.info || null
+        };
+      } else {
+        return {
+          success: false,
+          error: "Nenhum episódio encontrado para esta série"
+        };
+      }
+    } catch (error: any) {
+      console.error('Series info error:', error);
+      return {
+        success: false,
+        error: `Erro ao buscar episódios: ${error.message}`
       };
     }
   },

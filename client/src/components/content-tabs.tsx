@@ -4,15 +4,15 @@ import { Tv, Film, PlayCircle } from "lucide-react";
 import { ChannelList } from "@/components/channel-list";
 import { MoviesList } from "./movies-list";
 import { SeriesList } from "./series-list";
-import type { ContentType } from "@/lib/xtream-api";
+import type { ContentType, Playable } from "@/lib/xtream-api";
 
 interface ContentTabsProps {
   sessionId: string;
-  onChannelSelect: (channel: any) => void;
-  selectedChannelId?: string;
+  onContentSelect: (content: Playable) => void;
+  selectedContentId?: string;
 }
 
-export function ContentTabs({ sessionId, onChannelSelect, selectedChannelId }: ContentTabsProps) {
+export function ContentTabs({ sessionId, onContentSelect, selectedContentId }: ContentTabsProps) {
   const [activeTab, setActiveTab] = useState<ContentType>('live');
 
   return (
@@ -48,24 +48,24 @@ export function ContentTabs({ sessionId, onChannelSelect, selectedChannelId }: C
         <TabsContent value="live" className="mt-0">
           <ChannelList 
             sessionId={sessionId}
-            onChannelSelect={onChannelSelect}
-            selectedChannelId={selectedChannelId}
+            onChannelSelect={onContentSelect}
+            selectedChannelId={selectedContentId}
           />
         </TabsContent>
 
         <TabsContent value="movies" className="mt-0">
           <MoviesList 
             sessionId={sessionId}
-            onMovieSelect={onChannelSelect}
-            selectedMovieId={selectedChannelId}
+            onMovieSelect={onContentSelect}
+            selectedMovieId={selectedContentId}
           />
         </TabsContent>
 
         <TabsContent value="series" className="mt-0">
           <SeriesList 
             sessionId={sessionId}
-            onSeriesSelect={onChannelSelect}
-            selectedSeriesId={selectedChannelId}
+            onEpisodeSelect={onContentSelect}
+            selectedSeriesId={selectedContentId}
           />
         </TabsContent>
       </Tabs>

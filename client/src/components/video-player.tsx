@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import type { Channel } from "@/lib/xtream-api";
+import type { Playable } from "@/lib/xtream-api";
 
 // Import HLS.js dynamically
 declare global {
@@ -14,11 +14,11 @@ declare global {
 }
 
 interface VideoPlayerProps {
-  currentChannel?: Channel;
+  currentContent?: Playable;
   onLogout: () => void;
 }
 
-export function VideoPlayer({ currentChannel, onLogout }: VideoPlayerProps) {
+export function VideoPlayer({ currentContent, onLogout }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<any>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -28,6 +28,46 @@ export function VideoPlayer({ currentChannel, onLogout }: VideoPlayerProps) {
   const [showControls, setShowControls] = useState(false);
   const [hlsLoaded, setHlsLoaded] = useState(false);
   const { toast } = useToast();
+
+  // Helper functions to determine content type and get display info
+  const getContentType = (content: Playable): 'channel' | 'movie' | 'episode' => {
+    if ('contentType' in content) {
+      return content.contentType === 'live' ? 'channel' : 'movie';
+    }
+    return 'episode';
+  };
+
+  const getContentTitle = (content: Playable): string => {
+    if ('title' in content) {
+      // Episode
+      return `${content.title}`;
+    }
+    return content.name;
+  };
+
+  const getContentDescription = (content: Playable): string => {
+    const contentType = getContentType(content);
+    
+    if (contentType === 'channel') {
+      const categoryName = 'categoryName' in content ? content.categoryName : 'Entretenimento';
+      return `${categoryName || "Entretenimento"} • Ao vivo`;
+    } else if (contentType === 'movie') {
+      const duration = 'duration' in content && content.duration ? ` • ${content.duration}` : '';
+      const categoryName = 'categoryName' in content ? content.categoryName : 'Entretenimento';
+      return `Filme • ${categoryName || "Entretenimento"}${duration}`;
+    } else {
+      // Episode
+      const episode = content as any;
+      const seasonInfo = episode.season ? `T${episode.season}` : '';
+      const episodeInfo = episode.episodeNum ? `E${episode.episodeNum}` : '';
+      const seasonEpisode = [seasonInfo, episodeInfo].filter(Boolean).join('');
+      return `Série${seasonEpisode ? ` • ${seasonEpisode}` : ''}`;
+    }
+  };
+
+  const getDefaultContentMessage = (): string => {
+    return "Selecione conteúdo da lista para começar a assistir";
+  };
 
   // Load HLS.js
   useEffect(() => {
@@ -45,7 +85,7 @@ export function VideoPlayer({ currentChannel, onLogout }: VideoPlayerProps) {
 
   // Handle video source changes
   useEffect(() => {
-    if (!currentChannel || !hlsLoaded || !videoRef.current) return;
+    if (!currentContent || !hlsLoaded || !videoRef.current) return;
 
     const video = videoRef.current;
     setIsLoading(true);
@@ -68,7 +108,7 @@ export function VideoPlayer({ currentChannel, onLogout }: VideoPlayerProps) {
       hlsRef.current = hls;
 
       hls.on(window.Hls.Events.MEDIA_ATTACHED, () => {
-        hls.loadSource(currentChannel.streamUrl);
+        hls.loadSource(currentContent.streamUrl);
       });
 
       hls.on(window.Hls.Events.MANIFEST_PARSED, () => {
@@ -102,7 +142,7 @@ export function VideoPlayer({ currentChannel, onLogout }: VideoPlayerProps) {
       hls.attachMedia(video);
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
       // Native HLS support (Safari)
-      video.src = currentChannel.streamUrl;
+      video.src = currentContent.streamUrl;
       video.addEventListener('loadedmetadata', () => {
         setIsLoading(false);
         video.play().catch(err => {
@@ -122,7 +162,7 @@ export function VideoPlayer({ currentChannel, onLogout }: VideoPlayerProps) {
         hlsRef.current = null;
       }
     };
-  }, [currentChannel, hlsLoaded]);
+  }, [currentContent, hlsLoaded]);
 
   // Handle video events
   useEffect(() => {
@@ -184,7 +224,7 @@ export function VideoPlayer({ currentChannel, onLogout }: VideoPlayerProps) {
   };
 
   const retryStream = () => {
-    if (currentChannel && hlsLoaded) {
+    if (currentContent && hlsLoaded) {
       setHasError(false);
       setErrorMessage("");
       // Trigger re-render by updating a dependency
@@ -202,14 +242,11 @@ export function VideoPlayer({ currentChannel, onLogout }: VideoPlayerProps) {
         <div className="p-4 border-b border-border">
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="font-semibold text-foreground" data-testid="text-current-channel-name">
-                {currentChannel ? currentChannel.name : "Selecione um canal"}
+              <h4 className="font-semibold text-foreground" data-testid="text-current-content-name">
+                {currentContent ? getContentTitle(currentContent) : "Selecione conteúdo"}
               </h4>
-              <p className="text-sm text-muted-foreground" data-testid="text-current-channel-description">
-                {currentChannel 
-                  ? `${currentChannel.categoryName || "Entretenimento"} • Ao vivo`
-                  : "Escolha um canal da lista para começar a assistir"
-                }
+              <p className="text-sm text-muted-foreground" data-testid="text-current-content-description">
+                {currentContent ? getContentDescription(currentContent) : getDefaultContentMessage()}
               </p>
             </div>
             <div className="flex items-center space-x-2">
@@ -278,7 +315,7 @@ export function VideoPlayer({ currentChannel, onLogout }: VideoPlayerProps) {
           )}
 
           {/* Custom Controls Overlay */}
-          {showControls && !isLoading && !hasError && currentChannel && (
+          {showControls && !isLoading && !hasError && currentContent && (
             <div className="absolute bottom-0 left-0 right-0 video-overlay p-4 transition-opacity">
               <div className="flex items-center justify-between text-white">
                 <div className="flex items-center space-x-4">
@@ -337,7 +374,7 @@ export function VideoPlayer({ currentChannel, onLogout }: VideoPlayerProps) {
         </div>
 
         {/* Player Footer */}
-        {currentChannel && (
+        {currentContent && (
           <div className="p-4 bg-secondary/20">
             <div className="flex items-center justify-between text-sm">
               <div className="flex items-center space-x-4">
@@ -378,7 +415,7 @@ export function VideoPlayer({ currentChannel, onLogout }: VideoPlayerProps) {
         <Button
           variant="secondary"
           onClick={retryStream}
-          disabled={!currentChannel}
+          disabled={!currentContent}
           className="bg-secondary hover:bg-secondary/80 text-secondary-foreground p-3 rounded-lg transition-all text-center"
           data-testid="button-reload-stream"
         >
