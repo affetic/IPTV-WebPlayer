@@ -10,7 +10,7 @@ import type { XtreamAuth } from "@shared/schema";
 import { sessionStorage } from "@/lib/storage";
 import { DisclaimerBanner } from "@/components/disclaimer-banner";
 import { LoginForm } from "@/components/login-form";
-import { ChannelList } from "@/components/channel-list";
+import { ContentTabs } from "@/components/content-tabs";
 import { VideoPlayer } from "@/components/video-player";
 
 export default function Home() {
@@ -143,9 +143,9 @@ export default function Home() {
         ) : (
           <div className="animate-fade-in">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Channel List */}
+              {/* Content Tabs */}
               <div className="lg:col-span-1">
-                <ChannelList
+                <ContentTabs
                   sessionId={sessionId}
                   onChannelSelect={handleChannelSelect}
                   selectedChannelId={selectedChannel?.id}
