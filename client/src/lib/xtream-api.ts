@@ -5,6 +5,7 @@ export interface XtreamAuthResponse {
   sessionId?: string;
   userInfo?: any;
   serverInfo?: any;
+  credentials?: XtreamAuth;
   error?: string;
 }
 
@@ -20,11 +21,58 @@ export interface Channel {
   epgChannelId: string;
   added: string | null;
   isNsfw: boolean;
+  contentType: 'live' | 'movie' | 'series';
+}
+
+export interface Movie {
+  id: string;
+  streamId: string;
+  name: string;
+  categoryId: string;
+  categoryName: string;
+  streamUrl: string;
+  logo: string;
+  plot: string;
+  cast: string;
+  director: string;
+  genre: string;
+  releaseDate: string;
+  rating: string;
+  duration: string;
+  added: string | null;
+}
+
+export interface Series {
+  id: string;
+  seriesId: string;
+  name: string;
+  categoryId: string;
+  categoryName: string;
+  logo: string;
+  plot: string;
+  cast: string;
+  director: string;
+  genre: string;
+  releaseDate: string;
+  rating: string;
+  lastModified: string;
 }
 
 export interface ChannelsResponse {
   success: boolean;
   channels?: Channel[];
+  error?: string;
+}
+
+export interface MoviesResponse {
+  success: boolean;
+  movies?: Movie[];
+  error?: string;
+}
+
+export interface SeriesResponse {
+  success: boolean;
+  series?: Series[];
   error?: string;
 }
 
@@ -40,6 +88,8 @@ export interface CategoriesResponse {
   error?: string;
 }
 
+export type ContentType = 'live' | 'movies' | 'series';
+
 // Store current session data
 let currentSession: {
   host: string;
@@ -50,6 +100,18 @@ let currentSession: {
 } | null = null;
 
 export const xtreamApi = {
+  // Restore session from credentials (for localStorage restored sessions)
+  restoreSession(credentials: XtreamAuth, userInfo: any, serverInfo: any): void {
+    const cleanHost = credentials.host.replace(/\/$/, '');
+    currentSession = {
+      host: cleanHost,
+      username: credentials.username,
+      password: credentials.password,
+      userInfo,
+      serverInfo
+    };
+  },
+
   async authenticate(credentials: XtreamAuth): Promise<XtreamAuthResponse> {
     try {
       const { host, username, password } = credentials;
@@ -87,7 +149,8 @@ export const xtreamApi = {
           success: true,
           sessionId: `${username}_${Date.now()}`,
           userInfo: data.user_info,
-          serverInfo: data.server_info
+          serverInfo: data.server_info,
+          credentials
         };
       } else {
         return {
@@ -142,7 +205,8 @@ export const xtreamApi = {
           logo: stream.stream_icon || '',
           epgChannelId: stream.epg_channel_id || '',
           added: stream.added ? new Date(parseInt(stream.added) * 1000).toISOString() : null,
-          isNsfw: stream.is_adult === "1"
+          isNsfw: stream.is_adult === "1",
+          contentType: 'live' as const
         }));
 
         return {
@@ -164,7 +228,7 @@ export const xtreamApi = {
     }
   },
 
-  async getCategories(): Promise<CategoriesResponse> {
+  async getMovies(): Promise<MoviesResponse> {
     if (!currentSession) {
       return {
         success: false,
@@ -173,7 +237,140 @@ export const xtreamApi = {
     }
 
     try {
-      const categoriesUrl = `${currentSession.host}/player_api.php?username=${encodeURIComponent(currentSession.username)}&password=${encodeURIComponent(currentSession.password)}&action=get_live_categories`;
+      const moviesUrl = `${currentSession.host}/player_api.php?username=${encodeURIComponent(currentSession.username)}&password=${encodeURIComponent(currentSession.password)}&action=get_vod_streams`;
+      
+      const response = await fetch(moviesUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json, text/plain, */*',
+          'User-Agent': 'VLC/3.0.11 LibVLC/3.0.11'
+        },
+        mode: 'cors'
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      if (Array.isArray(data)) {
+        const movies = data.map((movie: any) => ({
+          id: `movie_${movie.stream_id}`,
+          streamId: movie.stream_id?.toString() || '',
+          name: movie.name || 'Filme sem nome',
+          categoryId: movie.category_id?.toString() || '',
+          categoryName: movie.category_name || 'Outros',
+          streamUrl: `${currentSession!.host}/movie/${currentSession!.username}/${currentSession!.password}/${movie.stream_id}.${movie.container_extension || 'mp4'}`,
+          logo: movie.stream_icon || '',
+          plot: movie.plot || '',
+          cast: movie.cast || '',
+          director: movie.director || '',
+          genre: movie.genre || '',
+          releaseDate: movie.releasedate || '',
+          rating: movie.rating || '',
+          duration: movie.duration || '',
+          added: movie.added ? new Date(parseInt(movie.added) * 1000).toISOString() : null,
+        }));
+
+        return {
+          success: true,
+          movies
+        };
+      } else {
+        return {
+          success: false,
+          error: "Formato de resposta inválido do servidor IPTV"
+        };
+      }
+    } catch (error: any) {
+      console.error('Movies error:', error);
+      return {
+        success: false,
+        error: `Erro ao buscar filmes: ${error.message}`
+      };
+    }
+  },
+
+  async getSeries(): Promise<SeriesResponse> {
+    if (!currentSession) {
+      return {
+        success: false,
+        error: "Sessão não encontrada. Faça login novamente."
+      };
+    }
+
+    try {
+      const seriesUrl = `${currentSession.host}/player_api.php?username=${encodeURIComponent(currentSession.username)}&password=${encodeURIComponent(currentSession.password)}&action=get_series`;
+      
+      const response = await fetch(seriesUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json, text/plain, */*',
+          'User-Agent': 'VLC/3.0.11 LibVLC/3.0.11'
+        },
+        mode: 'cors'
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      if (Array.isArray(data)) {
+        const series = data.map((serie: any) => ({
+          id: `series_${serie.series_id}`,
+          seriesId: serie.series_id?.toString() || '',
+          name: serie.name || 'Série sem nome',
+          categoryId: serie.category_id?.toString() || '',
+          categoryName: serie.category_name || 'Outros',
+          logo: serie.cover || '',
+          plot: serie.plot || '',
+          cast: serie.cast || '',
+          director: serie.director || '',
+          genre: serie.genre || '',
+          releaseDate: serie.releaseDate || '',
+          rating: serie.rating || '',
+          lastModified: serie.last_modified || '',
+        }));
+
+        return {
+          success: true,
+          series
+        };
+      } else {
+        return {
+          success: false,
+          error: "Formato de resposta inválido do servidor IPTV"
+        };
+      }
+    } catch (error: any) {
+      console.error('Series error:', error);
+      return {
+        success: false,
+        error: `Erro ao buscar séries: ${error.message}`
+      };
+    }
+  },
+
+  async getCategories(contentType: ContentType = 'live'): Promise<CategoriesResponse> {
+    if (!currentSession) {
+      return {
+        success: false,
+        error: "Sessão não encontrada. Faça login novamente."
+      };
+    }
+
+    try {
+      let action = 'get_live_categories';
+      if (contentType === 'movies') {
+        action = 'get_vod_categories';
+      } else if (contentType === 'series') {
+        action = 'get_series_categories';
+      }
+
+      const categoriesUrl = `${currentSession.host}/player_api.php?username=${encodeURIComponent(currentSession.username)}&password=${encodeURIComponent(currentSession.password)}&action=${action}`;
       
       const response = await fetch(categoriesUrl, {
         method: 'GET',
