@@ -141,45 +141,49 @@ export const xtreamApi = {
 
   async authenticate(credentials: XtreamAuth): Promise<XtreamAuthResponse> {
     try {
-      // Use server-side proxy to avoid CORS/Cloudflare blocking
-      const response = await fetch('/api/auth/xtream', {
-        method: 'POST',
+      const { host, username, password } = credentials;
+      const cleanHost = host.replace(/\/$/, '');
+      
+      // Direct request for GitHub Pages deployment (no server proxy)
+      const authUrl = `${cleanHost}/player_api.php?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
+      
+      const response = await fetch(authUrl, {
+        method: 'GET',
         headers: {
-          'Content-Type': 'application/json',
+          'Accept': 'application/json, text/plain, */*',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         },
-        body: JSON.stringify(credentials)
+        mode: 'cors'
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();
       
-      if (data && data.success && data.userInfo && data.serverInfo) {
+      if (data && data.user_info && data.server_info) {
         // Store session data for future requests
-        const cleanHost = credentials.host.replace(/\/$/, '');
         currentSession = {
-          sessionId: data.sessionId,
+          sessionId: `${username}_${Date.now()}`,
           host: cleanHost,
-          username: credentials.username,
-          password: credentials.password,
-          userInfo: data.userInfo,
-          serverInfo: data.serverInfo
+          username,
+          password,
+          userInfo: data.user_info,
+          serverInfo: data.server_info
         };
 
         return {
           success: true,
-          sessionId: data.sessionId,
-          userInfo: data.userInfo,
-          serverInfo: data.serverInfo,
+          sessionId: currentSession.sessionId,
+          userInfo: data.user_info,
+          serverInfo: data.server_info,
           credentials
         };
       } else {
         return {
           success: false,
-          error: data.error || "Credenciais inválidas ou servidor não encontrado"
+          error: "Credenciais inválidas ou servidor não encontrado"
         };
       }
     } catch (error: any) {
@@ -200,30 +204,48 @@ export const xtreamApi = {
     }
 
     try {
-      // Use server-side proxy to avoid CORS/Cloudflare blocking
-      const response = await fetch(`/api/channels/${currentSession.sessionId}`, {
+      // Direct request for GitHub Pages deployment
+      const channelsUrl = `${currentSession.host}/player_api.php?username=${encodeURIComponent(currentSession.username)}&password=${encodeURIComponent(currentSession.password)}&action=get_live_streams`;
+      
+      const response = await fetch(channelsUrl, {
         method: 'GET',
         headers: {
-          'Accept': 'application/json',
-        }
+          'Accept': 'application/json, text/plain, */*',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        },
+        mode: 'cors'
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();
       
-      if (data && data.success && Array.isArray(data.channels)) {
+      if (Array.isArray(data)) {
+        const channels = data.map((stream: any) => ({
+          id: `channel_${stream.stream_id}`,
+          sessionId: currentSession!.sessionId,
+          streamId: stream.stream_id?.toString() || '',
+          name: stream.name || 'Canal sem nome',
+          categoryId: stream.category_id?.toString() || '',
+          categoryName: stream.category_name || 'Outros',
+          streamUrl: `${currentSession!.host}/live/${currentSession!.username}/${currentSession!.password}/${stream.stream_id}.m3u8`,
+          logo: stream.stream_icon || '',
+          epgChannelId: stream.epg_channel_id || '',
+          added: stream.added ? new Date(parseInt(stream.added) * 1000).toISOString() : null,
+          isNsfw: stream.is_adult === "1",
+          contentType: 'live' as const
+        }));
+
         return {
           success: true,
-          channels: data.channels
+          channels
         };
       } else {
         return {
           success: false,
-          error: data.error || "Formato de resposta inválido do servidor IPTV"
+          error: "Formato de resposta inválido do servidor IPTV"
         };
       }
     } catch (error: any) {
@@ -442,63 +464,35 @@ export const xtreamApi = {
     }
 
     try {
-      // For now, only live categories are supported by server proxy
-      // Movies and series will fall back to direct fetch if needed
-      if (contentType !== 'live') {
-        let action = 'get_vod_categories';
-        if (contentType === 'series') {
-          action = 'get_series_categories';
-        }
-
-        const categoriesUrl = `${currentSession.host}/player_api.php?username=${encodeURIComponent(currentSession.username)}&password=${encodeURIComponent(currentSession.password)}&action=${action}`;
-        
-        const response = await fetch(categoriesUrl, {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json, text/plain, */*',
-            'User-Agent': 'VLC/3.0.11 LibVLC/3.0.11'
-          },
-          mode: 'cors'
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        
-        return {
-          success: true,
-          categories: Array.isArray(data) ? data : []
-        };
+      // Direct request for GitHub Pages deployment (all content types)
+      let action = 'get_live_categories';
+      if (contentType === 'movies') {
+        action = 'get_vod_categories';
+      } else if (contentType === 'series') {
+        action = 'get_series_categories';
       }
 
-      // Use server-side proxy for live categories
-      const response = await fetch(`/api/categories/${currentSession.sessionId}`, {
+      const categoriesUrl = `${currentSession.host}/player_api.php?username=${encodeURIComponent(currentSession.username)}&password=${encodeURIComponent(currentSession.password)}&action=${action}`;
+      
+      const response = await fetch(categoriesUrl, {
         method: 'GET',
         headers: {
-          'Accept': 'application/json',
-        }
+          'Accept': 'application/json, text/plain, */*',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        },
+        mode: 'cors'
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();
       
-      if (data && data.success && Array.isArray(data.categories)) {
-        return {
-          success: true,
-          categories: data.categories
-        };
-      } else {
-        return {
-          success: false,
-          error: data.error || "Formato de resposta inválido do servidor"
-        };
-      }
+      return {
+        success: true,
+        categories: Array.isArray(data) ? data : []
+      };
     } catch (error: any) {
       console.error('Categories error:', error);
       return {
