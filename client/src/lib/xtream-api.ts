@@ -117,6 +117,7 @@ export type Playable = Channel | Movie | Episode;
 
 // Store current session data
 let currentSession: {
+  sessionId: string;
   host: string;
   username: string;
   password: string;
@@ -126,9 +127,10 @@ let currentSession: {
 
 export const xtreamApi = {
   // Restore session from credentials (for localStorage restored sessions)
-  restoreSession(credentials: XtreamAuth, userInfo: any, serverInfo: any): void {
+  restoreSession(credentials: XtreamAuth, userInfo: any, serverInfo: any, sessionId?: string): void {
     const cleanHost = credentials.host.replace(/\/$/, '');
     currentSession = {
+      sessionId: sessionId || `${credentials.username}_${Date.now()}`,
       host: cleanHost,
       username: credentials.username,
       password: credentials.password,
@@ -159,6 +161,7 @@ export const xtreamApi = {
         // Store session data for future requests
         const cleanHost = credentials.host.replace(/\/$/, '');
         currentSession = {
+          sessionId: data.sessionId,
           host: cleanHost,
           username: credentials.username,
           password: credentials.password,
@@ -197,47 +200,30 @@ export const xtreamApi = {
     }
 
     try {
-      const channelsUrl = `${currentSession.host}/player_api.php?username=${encodeURIComponent(currentSession.username)}&password=${encodeURIComponent(currentSession.password)}&action=get_live_streams`;
-      
-      const response = await fetch(channelsUrl, {
+      // Use server-side proxy to avoid CORS/Cloudflare blocking
+      const response = await fetch(`/api/channels/${currentSession.sessionId}`, {
         method: 'GET',
         headers: {
-          'Accept': 'application/json, text/plain, */*',
-          'User-Agent': 'VLC/3.0.11 LibVLC/3.0.11'
-        },
-        mode: 'cors'
+          'Accept': 'application/json',
+        }
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();
       
-      if (Array.isArray(data)) {
-        const channels = data.map((stream: any) => ({
-          id: `channel_${stream.stream_id}`,
-          sessionId: 'client_session',
-          streamId: stream.stream_id?.toString() || '',
-          name: stream.name || 'Canal sem nome',
-          categoryId: stream.category_id?.toString() || '',
-          categoryName: stream.category_name || 'Outros',
-          streamUrl: `${currentSession!.host}/live/${currentSession!.username}/${currentSession!.password}/${stream.stream_id}.m3u8`,
-          logo: stream.stream_icon || '',
-          epgChannelId: stream.epg_channel_id || '',
-          added: stream.added ? new Date(parseInt(stream.added) * 1000).toISOString() : null,
-          isNsfw: stream.is_adult === "1",
-          contentType: 'live' as const
-        }));
-
+      if (data && data.success && Array.isArray(data.channels)) {
         return {
           success: true,
-          channels
+          channels: data.channels
         };
       } else {
         return {
           success: false,
-          error: "Formato de resposta inválido do servidor IPTV"
+          error: data.error || "Formato de resposta inválido do servidor IPTV"
         };
       }
     } catch (error: any) {
@@ -456,34 +442,63 @@ export const xtreamApi = {
     }
 
     try {
-      let action = 'get_live_categories';
-      if (contentType === 'movies') {
-        action = 'get_vod_categories';
-      } else if (contentType === 'series') {
-        action = 'get_series_categories';
+      // For now, only live categories are supported by server proxy
+      // Movies and series will fall back to direct fetch if needed
+      if (contentType !== 'live') {
+        let action = 'get_vod_categories';
+        if (contentType === 'series') {
+          action = 'get_series_categories';
+        }
+
+        const categoriesUrl = `${currentSession.host}/player_api.php?username=${encodeURIComponent(currentSession.username)}&password=${encodeURIComponent(currentSession.password)}&action=${action}`;
+        
+        const response = await fetch(categoriesUrl, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json, text/plain, */*',
+            'User-Agent': 'VLC/3.0.11 LibVLC/3.0.11'
+          },
+          mode: 'cors'
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        
+        return {
+          success: true,
+          categories: Array.isArray(data) ? data : []
+        };
       }
 
-      const categoriesUrl = `${currentSession.host}/player_api.php?username=${encodeURIComponent(currentSession.username)}&password=${encodeURIComponent(currentSession.password)}&action=${action}`;
-      
-      const response = await fetch(categoriesUrl, {
+      // Use server-side proxy for live categories
+      const response = await fetch(`/api/categories/${currentSession.sessionId}`, {
         method: 'GET',
         headers: {
-          'Accept': 'application/json, text/plain, */*',
-          'User-Agent': 'VLC/3.0.11 LibVLC/3.0.11'
-        },
-        mode: 'cors'
+          'Accept': 'application/json',
+        }
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();
       
-      return {
-        success: true,
-        categories: Array.isArray(data) ? data : []
-      };
+      if (data && data.success && Array.isArray(data.categories)) {
+        return {
+          success: true,
+          categories: data.categories
+        };
+      } else {
+        return {
+          success: false,
+          error: data.error || "Formato de resposta inválido do servidor"
+        };
+      }
     } catch (error: any) {
       console.error('Categories error:', error);
       return {
