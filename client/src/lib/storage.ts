@@ -1,9 +1,11 @@
 // Utilities for managing session storage in localStorage
+import type { XtreamAuth } from "@shared/schema";
 
 export interface StoredSession {
   sessionId: string;
   userInfo: any;
   serverInfo: any;
+  credentials: XtreamAuth;
   timestamp: number;
   expiresAt: number; // timestamp when session expires (7 days from login)
 }
@@ -13,12 +15,13 @@ const SESSION_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
 
 export const sessionStorage = {
   // Store session data in localStorage
-  saveSession(sessionId: string, userInfo: any, serverInfo: any): void {
+  saveSession(sessionId: string, userInfo: any, serverInfo: any, credentials: XtreamAuth): void {
     const now = Date.now();
     const sessionData: StoredSession = {
       sessionId,
       userInfo,
       serverInfo,
+      credentials,
       timestamp: now,
       expiresAt: now + SESSION_DURATION,
     };

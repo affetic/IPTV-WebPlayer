@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { xtreamApi, type Channel } from "@/lib/xtream-api";
+import type { XtreamAuth } from "@shared/schema";
 import { sessionStorage } from "@/lib/storage";
 import { DisclaimerBanner } from "@/components/disclaimer-banner";
 import { LoginForm } from "@/components/login-form";
@@ -25,6 +26,9 @@ export default function Home() {
   useEffect(() => {
     const storedSession = sessionStorage.getSession();
     if (storedSession) {
+      // Restore session in xtream API
+      xtreamApi.restoreSession(storedSession.credentials, storedSession.userInfo, storedSession.serverInfo);
+      
       setSessionId(storedSession.sessionId);
       setUserInfo(storedSession.userInfo);
       setServerInfo(storedSession.serverInfo);
@@ -62,7 +66,7 @@ export default function Home() {
     },
   });
 
-  const handleLoginSuccess = (newSessionId: string, newUserInfo: any, newServerInfo: any, rememberMe?: boolean) => {
+  const handleLoginSuccess = (newSessionId: string, newUserInfo: any, newServerInfo: any, credentials: XtreamAuth, rememberMe?: boolean) => {
     setSessionId(newSessionId);
     setUserInfo(newUserInfo);
     setServerInfo(newServerInfo);
@@ -70,7 +74,7 @@ export default function Home() {
 
     // Save session to localStorage if remember me is checked
     if (rememberMe) {
-      sessionStorage.saveSession(newSessionId, newUserInfo, newServerInfo);
+      sessionStorage.saveSession(newSessionId, newUserInfo, newServerInfo, credentials);
     }
   };
 

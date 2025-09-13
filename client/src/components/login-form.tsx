@@ -14,7 +14,7 @@ import { xtreamApi } from "@/lib/xtream-api";
 import { xtreamAuthSchema, type XtreamAuth } from "@shared/schema";
 
 interface LoginFormProps {
-  onLoginSuccess: (sessionId: string, userInfo: any, serverInfo: any, rememberMe?: boolean) => void;
+  onLoginSuccess: (sessionId: string, userInfo: any, serverInfo: any, credentials: XtreamAuth, rememberMe?: boolean) => void;
 }
 
 export function LoginForm({ onLoginSuccess }: LoginFormProps) {
@@ -32,13 +32,13 @@ export function LoginForm({ onLoginSuccess }: LoginFormProps) {
 
   const loginMutation = useMutation({
     mutationFn: xtreamApi.authenticate,
-    onSuccess: (data) => {
-      if (data.success && data.sessionId && data.userInfo && data.serverInfo) {
+    onSuccess: (data, variables) => {
+      if (data.success && data.sessionId && data.userInfo && data.serverInfo && data.credentials) {
         toast({
           title: "Conectado com sucesso!",
           description: "Carregando canais...",
         });
-        onLoginSuccess(data.sessionId, data.userInfo, data.serverInfo, rememberMe);
+        onLoginSuccess(data.sessionId, data.userInfo, data.serverInfo, data.credentials, rememberMe);
       } else {
         toast({
           title: "Erro na autenticação",
