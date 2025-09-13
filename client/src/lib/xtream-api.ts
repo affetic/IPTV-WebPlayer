@@ -139,48 +139,44 @@ export const xtreamApi = {
 
   async authenticate(credentials: XtreamAuth): Promise<XtreamAuthResponse> {
     try {
-      const { host, username, password } = credentials;
-      const cleanHost = host.replace(/\/$/, '');
-      
-      // Make direct request from browser to bypass Cloudflare
-      const authUrl = `${cleanHost}/player_api.php?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
-      
-      const response = await fetch(authUrl, {
-        method: 'GET',
+      // Use server-side proxy to avoid CORS/Cloudflare blocking
+      const response = await fetch('/api/auth/xtream', {
+        method: 'POST',
         headers: {
-          'Accept': 'application/json, text/plain, */*',
-          'User-Agent': 'VLC/3.0.11 LibVLC/3.0.11'
+          'Content-Type': 'application/json',
         },
-        mode: 'cors'
+        body: JSON.stringify(credentials)
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();
       
-      if (data && data.user_info && data.server_info) {
+      if (data && data.success && data.userInfo && data.serverInfo) {
         // Store session data for future requests
+        const cleanHost = credentials.host.replace(/\/$/, '');
         currentSession = {
           host: cleanHost,
-          username,
-          password,
-          userInfo: data.user_info,
-          serverInfo: data.server_info
+          username: credentials.username,
+          password: credentials.password,
+          userInfo: data.userInfo,
+          serverInfo: data.serverInfo
         };
 
         return {
           success: true,
-          sessionId: `${username}_${Date.now()}`,
-          userInfo: data.user_info,
-          serverInfo: data.server_info,
+          sessionId: data.sessionId,
+          userInfo: data.userInfo,
+          serverInfo: data.serverInfo,
           credentials
         };
       } else {
         return {
           success: false,
-          error: "Credenciais inválidas ou servidor não encontrado"
+          error: data.error || "Credenciais inválidas ou servidor não encontrado"
         };
       }
     } catch (error: any) {
